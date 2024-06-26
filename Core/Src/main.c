@@ -54,7 +54,7 @@
 void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
-
+void TaskPWM(void *pvParameters);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -70,7 +70,14 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  const osThreadDef_t thread_PWM = {
+        "TaskPWM",
+        (void const *)TaskPWM,
+        osPriorityAboveNormal,
+        1,
+        128,
+    };
+  const osThreadDef_t* pThread_PWM = &thread_PWM;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -109,7 +116,10 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  osThreadCreate(pThread_PWM, NULL);
 
+  LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1);
+  LL_TIM_EnableCounter(TIM2);
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */
@@ -177,7 +187,23 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+void TaskPWM(void *pvParameters)
+{
+  uint32_t CompareValue = 0;
+  for (;;)
+  {
+   if (CompareValue < 999)
+   {
+     CompareValue += 1;
+   }
+   else
+   {
+     CompareValue = 0;
+   }
+   vTaskDelay(2);
+   LL_TIM_OC_SetCompareCH1(TIM2, CompareValue);
+  }
+}
 /* USER CODE END 4 */
 
 /**

@@ -187,7 +187,23 @@ void SysTick_Handler(void)
 void ADC1_2_IRQHandler(void)
 {
   /* USER CODE BEGIN ADC1_2_IRQn 0 */
+  uint32_t value;
+  static portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
+  // uint32_t EOC_val_before = 0;
+  // uint32_t EOC_val_after = 0;
+  // uint32_t tim1_cnt = 0;
+  // static portBASE_TYPE xHigherPriorityTaskWoken;
+  // QueueHandle_t* queue_tmp = );
+   if (LL_ADC_IsActiveFlag_EOC(ADC2))
+   {
+    // EOC_val_before = ADC2->ISR;
+    // LL_ADC_ClearFlag_EOC(ADC2);
+    // EOC_val_after = ADC2->ISR;
+    // tim1_cnt = LL_TIM_GetCounter(TIM1);
 
+    value = LL_ADC_REG_ReadConversionData32(ADC2);
+    xQueueSendToBackFromISR(*GetQueueADC(), &value, &xHigherPriorityTaskWoken);
+   }
   /* USER CODE END ADC1_2_IRQn 0 */
 
   /* USER CODE BEGIN ADC1_2_IRQn 1 */

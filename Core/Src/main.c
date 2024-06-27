@@ -18,7 +18,6 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
-#include "cmsis_os.h"
 #include "adc.h"
 #include "usart.h"
 #include "tim.h"
@@ -26,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+// #include "stdbool.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -36,7 +35,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define V_REF             3275
+#define PWM_COMPARE_MAX   999
+#define uxQueueLength     2
+#define uxItemSize        4
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -47,14 +49,15 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+QueueHandle_t queueTest;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
-void TaskPWM(void *pvParameters);
+// void TaskPWM(void *pvParameters);
+void TaskADC(void *pvParameters);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -70,14 +73,24 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-  const osThreadDef_t thread_PWM = {
-        "TaskPWM",
-        (void const *)TaskPWM,
+  // const osThreadDef_t thread_PWM = {
+  //       "TaskPWM",
+  //       (void const *)TaskPWM,
+  //       osPriorityNormal,
+  //       1,
+  //       128,
+  //   };
+  // const osThreadDef_t* p_thread_PWM = &thread_PWM;
+
+  const osThreadDef_t thread_ADC = {
+        "Task",
+        (void const *)TaskADC,
         osPriorityAboveNormal,
         1,
         128,
     };
-  const osThreadDef_t* pThread_PWM = &thread_PWM;
+
+  const osThreadDef_t* p_thread_ADC = &thread_ADC;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -116,10 +129,20 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  osThreadCreate(pThread_PWM, NULL);
+  // osThreadCreate(p_thread_PWM, NULL);
+  queueTest = xQueueCreate(uxQueueLength, uxItemSize);
+  osThreadCreate(p_thread_ADC, NULL);
+
+  LL_ADC_Enable(ADC2);
+
+  LL_TIM_CC_EnableChannel(TIM1, LL_TIM_CHANNEL_CH1);
+  LL_TIM_EnableCounter(TIM1);
+  LL_TIM_OC_SetCompareCH1(TIM1, 65534);
 
   LL_TIM_CC_EnableChannel(TIM2, LL_TIM_CHANNEL_CH1);
   LL_TIM_EnableCounter(TIM2);
+
+  LL_ADC_REG_StartConversion(ADC2);
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in cmsis_os2.c) */
@@ -187,22 +210,55 @@ void SystemClock_Config(void)
 }
 
 /* USER CODE BEGIN 4 */
-void TaskPWM(void *pvParameters)
+// void TaskPWM(void *pvParameters)
+// {
+//   // uint32_t CompareValue = 0;
+//   for (;;)
+//   {
+//   //  if (CompareValue < 999)
+//   //  {
+//   //    CompareValue += 1;
+//   //  }
+//   //  else
+//   //  {
+//   //    CompareValue = 0;
+//   //  }
+//    vTaskDelay(2);
+//   //  LL_TIM_OC_SetCompareCH1(TIM2, CompareValue);
+//   }
+// }
+
+void TaskADC(void *pvParameters)
 {
+  /* USER CODE BEGIN 5 */
+  uint32_t ADC_data = 0x00000000;
+  uint32_t ADC_mVolt = 0;
   uint32_t CompareValue = 0;
-  for (;;)
+  // uint32_t tim1_cnt = 0;
+  // uint32_t ADC_IsDisableOngoing;
+  // uint32_t ADC2_EXTEN = 0;
+  // uint32_t ADC2_cr = 0;
+
+  for(;;)
   {
-   if (CompareValue < 999)
-   {
-     CompareValue += 1;
-   }
-   else
-   {
-     CompareValue = 0;
-   }
-   vTaskDelay(2);
-   LL_TIM_OC_SetCompareCH1(TIM2, CompareValue);
+    // tim1_cnt = LL_TIM_GetCounter(TIM1);
+    // ADC_IsDisableOngoing = LL_ADC_IsDisableOngoing(ADC2);
+    // ADC2_cr = ADC2->CR;
+    // ADC2_EXTEN = LL_ADC_REG_IsTriggerSourceSWStart(ADC2);
+
+    xQueueReceive(queueTest, &ADC_data, 1); // (QueueHandle_t)pvParameters
+    ADC_mVolt = __LL_ADC_CALC_DATA_TO_VOLTAGE(V_REF, ADC_data, LL_ADC_RESOLUTION_12B);
+    CompareValue = PWM_COMPARE_MAX * ADC_mVolt / V_REF;
+    LL_TIM_OC_SetCompareCH1(TIM2, CompareValue);
+
+    vTaskDelay(20);
   }
+  /* USER CODE END 5 */
+}
+
+QueueHandle_t* GetQueueADC(void)
+{
+  return &queueTest;
 }
 /* USER CODE END 4 */
 
